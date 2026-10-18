@@ -100,6 +100,14 @@ form{padding:20px;display:grid;gap:14px}
 .invalid{border-color:var(--late-edge)}
 textarea{resize:vertical;min-height:64px}
 [hidden]{display:none!important}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--ink)}
+.linkbtn{border:0;background:none;color:var(--accent);padding:0;text-decoration:underline}
+.banner{background:var(--warn-bg);border:1px solid var(--warn-edge);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.gate{min-height:100vh;display:grid;place-items:center;padding:16px}
+.gcard{width:min(440px,100%);margin:0}
+#dDev{width:min(760px,calc(100% - 24px))}
+.dvwrap{padding:20px;max-height:85vh;overflow:auto}
 @media (max-width:760px){
   .rt,.rt tbody,.rt tr,.rt td{display:block;width:100%}
   .rt thead{position:absolute;left:-9999px}
@@ -114,16 +122,17 @@ textarea{resize:vertical;min-height:64px}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="app" hidden>
   <header>
     <div><h1>Планировщик заданий</h1><p class="sub" id="hsub"></p></div>
     <div class="hdr">
-      <span class="chip" id="net">Проверка сервера…</span>
-      <label>Студент <select id="userSel"></select></label>
-      <button id="addUser" type="button">Добавить студента</button>
+      <span class="chip" id="net"></span>
+      <button id="logout" type="button">Выйти</button>
       <button id="themeBtn" type="button"></button>
     </div>
   </header>
+
+  <div class="banner" id="banner" hidden></div>
 
   <nav role="tablist">
     <button role="tab" id="tabS" aria-selected="true" data-tab="subjects">Предметы</button>
@@ -146,17 +155,7 @@ textarea{resize:vertical;min-height:64px}
 
   <section id="pgSubject" hidden></section>
 
-  <section id="pgStudents" hidden>
-    <div id="stuBody"></div>
-    <div class="card" id="srvCard">
-      <h2>Сервер</h2>
-      <p class="sub" id="srvInfo" style="margin-bottom:10px"></p>
-      <div class="row">
-        <input id="srvUrl" placeholder="https://адрес-сервера (пусто — тот же сайт)" aria-label="Адрес сервера">
-        <div class="btns l"><button id="srvConn" type="button" class="primary">Подключить</button><button id="srvOff" type="button">Отключить</button></div>
-      </div>
-    </div>
-  </section>
+  <section id="pgStudents" hidden><div id="stuBody"></div></section>
 
   <section id="pgProfile" hidden>
     <div class="card">
@@ -164,7 +163,7 @@ textarea{resize:vertical;min-height:64px}
       <dl id="pview"></dl>
       <div class="btns l">
         <button class="primary" id="editProf" type="button">Редактировать профиль</button>
-        <button class="danger" id="delUser" type="button">Удалить этого студента</button>
+        
       </div>
     </div>
     <div class="card">
@@ -172,16 +171,33 @@ textarea{resize:vertical;min-height:64px}
       <div id="stats"></div>
     </div>
     <div class="card">
-      <h2>Экспорт и импорт</h2>
-      <p class="sub" style="margin-bottom:12px">Данные хранятся в этом браузере. Чтобы перенести студента на другое устройство, скачайте JSON и загрузите его там через «Импортировать». Импорт добавляет нового студента и ничего не перезаписывает.</p>
+      <h2>Экспорт</h2>
+      <p class="sub" style="margin-bottom:12px">Данные хранятся на сервере. JSON содержит ваш профиль, предметы, задачи и комментарии, CSV — таблицу задач для Excel.</p>
       <div class="btns l">
         <button id="expJson" type="button">Скачать JSON</button>
         <button id="expCsv" type="button">Скачать CSV</button>
-        <button id="impBtn" type="button">Импортировать JSON</button>
-        <input type="file" id="impFile" accept=".json,application/json" hidden>
+        
       </div>
     </div>
   </section>
+  <p class="sub" style="margin-top:24px"><button id="devBtn" class="linkbtn" type="button">Меню разработчика</button></p>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <div class="card gcard">
+    <h1 style="margin-bottom:6px">Планировщик заданий</h1>
+    <div id="gConn" hidden>
+      <p id="gMsg" class="sub" style="margin-bottom:12px"></p>
+      <div class="f"><label for="gUrl">Адрес сервера (пусто — тот же сайт)</label><input id="gUrl" placeholder="https://адрес-сервера" autocomplete="off"></div>
+      <div class="btns l" style="margin-top:12px"><button id="gRetry" type="button" class="primary">Подключиться</button></div>
+    </div>
+    <div id="gLogin" hidden>
+      <p class="sub" style="margin-bottom:12px">Введите ФИО, чтобы войти. Пароль не нужен. Если студента с таким именем ещё нет, он будет создан.</p>
+      <div class="f"><label for="gName">ФИО</label><input id="gName" maxlength="100" autocomplete="name" placeholder="Иванов Иван Иванович"><div class="err" id="gErr"></div></div>
+      <div class="btns l" style="margin-top:12px"><button id="gGo" type="button" class="primary">Войти</button></div>
+    </div>
+    <p style="margin:16px 0 0"><button id="devLink" class="linkbtn" type="button">Меню разработчика</button></p>
+  </div>
 </div>
 
 <dialog id="dProf"><form id="fProf" novalidate>
@@ -191,6 +207,18 @@ textarea{resize:vertical;min-height:64px}
   <div class="f"><label for="pMail">Email (необязательно)</label><input id="pMail" type="text" inputmode="email" maxlength="100" autocomplete="email"><div class="err" data-for="pMail"></div></div>
   <div class="btns"><button type="button" data-close>Отмена</button><button type="submit" class="primary">Сохранить</button></div>
 </form></dialog>
+
+<dialog id="dDevLogin"><form id="fDevLogin" novalidate>
+  <h2>Меню разработчика</h2>
+  <div class="f"><label for="dvPass">Пароль разработчика</label><input id="dvPass" type="password" autocomplete="current-password"><div class="err" data-for="dvPass"></div></div>
+  <div class="btns"><button type="button" data-close>Отмена</button><button type="submit" class="primary">Войти</button></div>
+</form></dialog>
+
+<dialog id="dDev"><div class="dvwrap">
+  <h2>Меню разработчика</h2>
+  <div id="dvBody"></div>
+  <div class="btns"><button type="button" id="dvLogout">Выйти из меню</button><button type="button" class="primary" data-close>Закрыть</button></div>
+</div></dialog>
 
 <dialog id="dSub"><form id="fSub" novalidate>
   <h2 id="subTitle">Новый предмет</h2>
@@ -222,9 +250,8 @@ const KEY='student-planner-v3', V2='student-planner-v2', V1='student-planner-v1'
 const TYPES=['Лабораторная','Реферат','Курсовая','Контрольная','Домашнее задание','Зачёт','Экзамен','Другое'];
 const ST=['Не начато','В работе','Готово'];
 const $=id=>document.getElementById(id);
-let DB, S; // DB: {users:[{id,profile,subjects}],current}; S — текущий студент
-let online=false, API='';
-const ui={route:{page:'subjects',id:null},open:{},sort:'due',filter:'',editSub:null,editTask:null,curSub:null};
+let DB={users:[]}, S=null, API=''; // DB.users — все студенты; S — вошедший студент
+const ui={route:{page:'subjects',id:null},dir:1,ssort:'manual',open:{},sort:'due',filter:'',editSub:null,editTask:null,curSub:null};
 
 /* ---------- утилиты ---------- */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -250,67 +277,11 @@ function el(tag,p,kids){
 const dk=t=>t.due||'9999-99-99'; // задачи без срока — в конец
 
 /* ---------- данные ---------- */
-const save=()=>{
-  if(online){push(S);return}
-  try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){}
-};
 const emptyProfile=()=>({name:'',group:'',email:''});
-function seed(){
-  const T=(title,type,due,status,notes)=>({id:uid(),title,type,due:due===null?'':offset(due),status,notes:notes||''});
-  return {profile:emptyProfile(),subjects:[
-    {id:uid(),name:'Математический анализ',description:'Лектор — доцент кафедры математики. Допуск к экзамену после сдачи всех типовых расчётов.',comments:[],tasks:[
-      T('Типовой расчёт №2','Домашнее задание',-2,'В работе','Осталась тема «Ряды»'),
-      T('Коллоквиум по рядам','Контрольная',6,'Не начато'),
-      T('Экзамен','Экзамен',30,'Не начато')]},
-    {id:uid(),name:'Программирование',description:'Лабораторные сдаются через систему вуза. Курсовой проект защищается в конце семестра.',
-      comments:[{id:uid(),text:'Преподаватель разрешил сдавать лабораторную №4 на неделю позже при наличии черновика.',at:new Date().toISOString()}],tasks:[
-      T('Лабораторная работа №3','Лабораторная',-9,'Готово','Принято'),
-      T('Лабораторная работа №4','Лабораторная',2,'Не начато','Сдавать в системе вуза'),
-      T('Курсовой проект','Курсовая',25,'В работе'),
-      T('Выбрать тему курсового','Другое',null,'Не начато','Срок пока не назван')]},
-    {id:uid(),name:'История',description:'',comments:[],tasks:[T('Доклад о реформах XIX века','Реферат',7,'В работе','10 минут, до 12 слайдов')]},
-    {id:uid(),name:'Физика',description:'',comments:[],tasks:[T('Отчёт по лабораторной №3','Лабораторная',-5,'Готово')]}
-  ]};
-}
-function migrateV1(old){
-  const map={}, res={profile:emptyProfile(),subjects:[]};
-  old.forEach(o=>{
-    const nm=norm(String(o.subject||'Без предмета'));
-    if(!map[nm]){map[nm]={id:uid(),name:nm,tasks:[]};res.subjects.push(map[nm]);}
-    const s=map[nm]; let title=norm(String(o.task||'Задание')),n=2,base=title;
-    while(s.tasks.some(t=>t.title.toLowerCase()===title.toLowerCase())) title=base+' ('+n++ +')';
-    s.tasks.push({id:uid(),title,type:'Другое',due:o.due,status:ST.includes(o.status)?o.status:ST[0],notes:[o.scope,o.notes].filter(Boolean).join('. ')});
-  });
-  return res;
-}
-function load(){
-  try{
-    let r=localStorage.getItem(KEY);
-    if(r){const d=JSON.parse(r); if(d&&Array.isArray(d.users)&&d.users.length) return d;}
-    r=localStorage.getItem(V2);
-    if(r){const d=JSON.parse(r); if(d&&Array.isArray(d.subjects)) return {users:[Object.assign({id:uid()},d)]};}
-    r=localStorage.getItem(V1);
-    if(r){const d=JSON.parse(r); if(Array.isArray(d)&&d.length) return {users:[Object.assign({id:uid()},migrateV1(d))]};}
-  }catch(e){}
-  return null;
-}
-function importUser(o){
-  if(!o||typeof o!=='object'||!Array.isArray(o.subjects)) throw new Error('bad');
-  const p=o.profile||{};
-  const u={id:uid(),profile:{name:norm(String(p.name||'')).slice(0,100),group:String(p.group||'').slice(0,20),email:String(p.email||'').slice(0,100)},subjects:[]};
-  o.subjects.forEach(s=>{
-    const name=norm(String(s&&s.name||'')).slice(0,80);
-    if(!name||u.subjects.some(x=>x.name.toLowerCase()===name.toLowerCase())) return;
-    const sub={id:uid(),name,description:String(s.description||'').slice(0,1000),comments:[],tasks:[]};
-    (Array.isArray(s.comments)?s.comments:[]).forEach(c=>{const t=String(c&&c.text||'').slice(0,500); if(t) sub.comments.push({id:uid(),text:t,at:String(c.at||'')})});
-    (Array.isArray(s.tasks)?s.tasks:[]).forEach(t=>{
-      const title=norm(String(t&&t.title||'')).slice(0,120);
-      if(!title||sub.tasks.some(x=>x.title.toLowerCase()===title.toLowerCase())) return;
-      sub.tasks.push({id:uid(),title,type:TYPES.includes(t.type)?t.type:'Другое',due:parse(String(t.due||''))?String(t.due):'',
-        status:ST.includes(t.status)?t.status:ST[0],notes:String(t.notes||'').slice(0,400)});
-    });
-    u.subjects.push(sub);
-  });
+const save=()=>{if(S) push(S)};
+function normUser(u){
+  u.id=u.id||uid(); u.profile=Object.assign(emptyProfile(),u.profile); u.subjects=Array.isArray(u.subjects)?u.subjects:[];
+  u.subjects.forEach(s=>{s.description=s.description||'';s.comments=Array.isArray(s.comments)?s.comments:[];s.tasks=Array.isArray(s.tasks)?s.tasks:[];s.tasks.forEach(x=>{x.due=x.due||''})});
   return u;
 }
 
@@ -336,22 +307,28 @@ function hint(t){
   return n<0?'просрочено на '+plural(-n):n===0?'сегодня':n===1?'завтра':n<=3?'через '+plural(n):'';
 }
 function sorted(list){
-  const a=list.filter(t=>!ui.filter||t.status===ui.filter), k=ui.sort;
-  return a.sort((x,y)=>{
-    let c=0;
-    if(k==='type') c=TYPES.indexOf(x.type)-TYPES.indexOf(y.type);
-    else if(k==='status') c=ST.indexOf(x.status)-ST.indexOf(y.status);
-    return c||(dk(x)<dk(y)?-1:dk(x)>dk(y)?1:0);
-  });
+  const a=list.filter(t=>!ui.filter||t.status===ui.filter);
+  const byDue=(x,y)=>dk(x)<dk(y)?-1:dk(x)>dk(y)?1:0;
+  const cmp={due:byDue,
+    title:(x,y)=>x.title.localeCompare(y.title,'ru'),
+    type:(x,y)=>TYPES.indexOf(x.type)-TYPES.indexOf(y.type),
+    status:(x,y)=>ST.indexOf(x.status)-ST.indexOf(y.status)}[ui.sort]||byDue;
+  return a.sort((x,y)=>(cmp(x,y)*ui.dir)||byDue(x,y));
+}
+function sortedSubjects(){
+  const a=S.subjects.slice(), m=ui.ssort;
+  const near=s=>s.tasks.filter(t=>t.status!=='Готово'&&t.due).map(t=>t.due).sort()[0]||'9999-99-99';
+  if(m==='name') a.sort((x,y)=>x.name.localeCompare(y.name,'ru'));
+  if(m==='deadline') a.sort((x,y)=>near(x)<near(y)?-1:near(x)>near(y)?1:0);
+  if(m==='progress') a.sort((x,y)=>stat(x).pct-stat(y).pct);
+  return a;
 }
 
 /* ---------- отрисовка ---------- */
 function renderHead(){
   const p=S.profile;
-  $('hsub').textContent=p.name?p.name+(p.group?' · группа '+p.group:''):'Профиль не заполнен — откройте вкладку «Мой профиль»';
-  const sel=$('userSel'); sel.textContent='';
-  DB.users.forEach(u=>sel.appendChild(el('option',{value:u.id,text:u.profile.name||'Новый студент'})));
-  sel.value=S.id;
+  $('hsub').textContent=p.name?p.name+(p.group?' · группа '+p.group:' · укажите группу в профиле'):'Заполните профиль';
+  $('banner').textContent=cfg.announcement||''; $('banner').hidden=!cfg.announcement;
 }
 function render(){renderHead();renderSubjects();renderProfile();route()}
 function parseHash(){
@@ -378,24 +355,32 @@ function route(){
   $('tabS').setAttribute('aria-selected',page==='subjects'||page==='subject');
   $('tabP').setAttribute('aria-selected',page==='profile');
   $('tabT').setAttribute('aria-selected',page==='students'||page==='student');
-  $('srvCard').hidden=page==='student';
   if(page==='subject') renderSubjectPage(sub);
   if(page==='students') renderStudents();
   if(page==='student') renderStudentView(stu);
 }
-function addControls(box){
+function addControls(box,withSubj){
   const mk=(label,opts,val,fn)=>{
     const sel=el('select',{},opts.map(o=>el('option',{value:o[0],text:o[1]}))); sel.value=val; sel.onchange=()=>fn(sel.value);
     return el('label',{text:label+' '},[sel]);
   };
-  box.appendChild(mk('Сортировка',[['due','По сроку'],['type','По типу'],['status','По статусу']],ui.sort,v=>{ui.sort=v;render()}));
+  if(withSubj) box.appendChild(mk('Предметы',[['manual','По порядку'],['name','По названию'],['deadline','По ближайшему сроку'],['progress','По прогрессу']],ui.ssort,v=>{ui.ssort=v;render()}));
+  box.appendChild(mk('Задачи',[['due','По сроку'],['title','По названию'],['type','По типу'],['status','По статусу']],ui.sort,v=>{ui.sort=v;ui.dir=1;render()}));
+  const dir=el('button',{type:'button',title:'Изменить направление сортировки',text:ui.dir>0?'↑ по возрастанию':'↓ по убыванию'});
+  dir.onclick=()=>{ui.dir=-ui.dir;render()}; box.appendChild(dir);
   box.appendChild(mk('Статус',[['','Все']].concat(ST.map(s=>[s,s])),ui.filter,v=>{ui.filter=v;render()}));
 }
 function taskBlock(s){
   const list=sorted(s.tasks);
   if(!list.length) return el('p',{cls:'empty',text:s.tasks.length?'Нет задач с таким статусом.':'Задач пока нет. Добавьте первую.'});
   const table=el('table',{cls:'rt'});
-  table.appendChild(el('thead',{},[el('tr',{},['Название','Тип','Срок сдачи','Статус','Примечания',''].map(h=>el('th',{text:h})))]));
+  const SK={'Название':'title','Тип':'type','Срок сдачи':'due','Статус':'status'};
+  table.appendChild(el('thead',{},[el('tr',{},['Название','Тип','Срок сдачи','Статус','Примечания',''].map(h=>{
+    const k=SK[h]; if(!k) return el('th',{text:h});
+    const on=ui.sort===k, th=el('th',{cls:'sortable',role:'button',tabindex:'0','aria-sort':on?(ui.dir>0?'ascending':'descending'):'none',text:h+(on?(ui.dir>0?' ▲':' ▼'):'')});
+    const act=()=>{if(ui.sort===k)ui.dir=-ui.dir;else{ui.sort=k;ui.dir=1}render()};
+    th.onclick=act; th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act()}}; return th;
+  }))]));
   const tbd=el('tbody');
   list.forEach(t=>{
     const tr=el('tr',{cls:rowClass(t)}), h=hint(t);
@@ -420,10 +405,10 @@ function delSub(s){
   go('subjects');
 }
 function renderSubjects(){
-  const c=$('ctl'); c.textContent=''; addControls(c);
+  const c=$('ctl'); c.textContent=''; addControls(c,true);
   const box=$('subjects'); box.textContent='';
   if(!S.subjects.length){box.appendChild(el('p',{cls:'empty',text:'Предметов пока нет. Нажмите «Добавить предмет».'}));return}
-  S.subjects.forEach(s=>{
+  sortedSubjects().forEach(s=>{
     const st=stat(s), d=el('details');
     d.open=!!ui.open[s.id];
     d.addEventListener('toggle',()=>{ui.open[s.id]=d.open});
@@ -535,6 +520,7 @@ $('fProf').addEventListener('submit',e=>{
   const name=norm($('pName').value), group=$('pGroup').value.trim(), mail=$('pMail').value.trim();
   if(!name) err('pName','Укажите ФИО.');
   else if(!/^\p{L}[\p{L}'’.\-]*(\s+\p{L}[\p{L}'’.\-]*)+$/u.test(name)) err('pName','Введите минимум фамилию и имя: только буквы, пробелы, дефис и точка.');
+  if(name&&!$('pName').classList.contains('invalid')&&DB.users.some(u=>u.id!==S.id&&norm(u.profile.name).toLowerCase()===name.toLowerCase())) err('pName','Студент с таким ФИО уже есть.');
   if(!group) err('pGroup','Укажите номер группы.');
   else if(!/^[\p{L}\d][\p{L}\d\-\/ ]{0,19}$/u.test(group)) err('pGroup','Допустимы буквы, цифры, дефис и «/», до 20 символов. Например, ИВТ-21-1.');
   if(mail&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) err('pMail','Проверьте email: он должен выглядеть как name@example.com.');
@@ -595,98 +581,101 @@ $('fTask').addEventListener('submit',e=>{
   ui.open[s.id]=true; save(); closeD($('dTask')); render();
 });
 
-/* ---------- сервер ---------- */
+/* ---------- сервер и вход ---------- */
+// Если сайт лежит на GitHub Pages, впишите сюда адрес сервера, например 'https://planner.example.com'
+const DEFAULT_API='';
 const CUR='student-planner-cur', APIK='student-planner-api';
-let poll=null, pushing=Promise.resolve();
-function apiMode(){try{return localStorage.getItem(APIK)||''}catch(e){return ''}}
-async function api(method,path,body){
-  const c=new AbortController(), tm=setTimeout(()=>c.abort(),8000);
+const NAME_RE=/^\p{L}[\p{L}'’.\-]*(\s+\p{L}[\p{L}'’.\-]*)+$/u;
+let cfg={serverUrl:'',announcement:'',allowSignup:true}, poll=null, pushing=Promise.resolve(), dirty=false, devToken='';
+const lsGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+const lsSet=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k)}catch(e){}};
+async function api(method,path,body,base){
+  const c=new AbortController(), tm=setTimeout(()=>c.abort(),8000), h={};
+  if(body) h['Content-Type']='application/json';
+  if(devToken&&path.indexOf('/api/dev/')===0) h.Authorization='Bearer '+devToken;
   try{
-    const r=await fetch(API+path,{method,signal:c.signal,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    const r=await fetch((base===undefined?API:base)+path,{method,signal:c.signal,headers:h,body:body?JSON.stringify(body):undefined});
+    if(!r.ok){const er=new Error('HTTP '+r.status); er.status=r.status; throw er}
     return r.status===204?null:await r.json();
   }finally{clearTimeout(tm)}
 }
-function setNet(ok,msg){
-  const n=$('net'); n.className='chip'+(ok===false?' late':'');
-  n.textContent=!online?'Локальный режим':ok===false?(msg||'Нет связи с сервером'):'Сервер подключён';
-  $('srvInfo').textContent=online
-    ?'Подключено: '+(API||location.origin)+'. Изменения сохраняются на сервере, список студентов обновляется каждые 10 секунд.'
-    :'Работа без сервера: данные хранятся только в этом браузере. Запустите server.js и откройте сайт по его адресу или укажите адрес сервера ниже.';
-}
+function setNet(ok,msg){const n=$('net'); n.className='chip'+(ok?'':' late'); n.textContent=ok?'Сервер подключён':(msg||'Нет связи с сервером')}
 function push(u){
-  pushing=pushing.then(()=>api('PUT','/api/users/'+u.id,u)).then(()=>setNet(true),()=>setNet(false,'Не сохранено: нет связи с сервером'));
+  dirty=true;
+  pushing=pushing.then(()=>api('PUT','/api/users/'+u.id,u)).then(()=>{dirty=false;setNet(true)},async e=>{
+    if(e.status===409){
+      dirty=false; setNet(true); alert('Студент с таким ФИО уже есть. Изменения профиля не сохранены.');
+      try{Object.assign(S,normUser(await api('GET','/api/users/'+S.id)));render()}catch(x){}
+    }else setNet(false,'Не сохранено: нет связи с сервером');
+  });
+  return pushing;
 }
-function saveCur(){DB.current=S.id;try{localStorage.setItem(CUR,S.id)}catch(e){} if(!online) save()}
-async function connect(){
-  if(apiMode()==='off'){setNet();return}
+function gate(mode,msg){
+  $('app').hidden=true; $('gate').hidden=false;
+  $('gConn').hidden=mode!=='connect'; $('gLogin').hidden=mode!=='login';
+  if(mode==='connect'){$('gMsg').textContent=msg||''; $('gUrl').value=API} else $('gName').focus();
+}
+async function boot(){
+  API=(lsGet(APIK)||DEFAULT_API).replace(/\/+$/,'');
+  gate('connect','Подключение к серверу…');
+  try{cfg=await api('GET','/api/config')}
+  catch(e){gate('connect','Не удалось подключиться к серверу'+(API?' '+API:'')+'. Проверьте адрес и убедитесь, что server.js запущен.');return}
+  // разработчик мог задать для всех пользователей другой адрес сервера
+  const target=(cfg.serverUrl||'').replace(/\/+$/,'');
+  if(target&&target!==API&&target!==location.origin){
+    try{const c2=await api('GET','/api/config',null,target); API=target; cfg=c2; lsSet(APIK,target)}catch(e){}
+  }
+  const id=lsGet(CUR);
+  if(id){try{S=normUser(await api('GET','/api/users/'+id)); await afterLogin(); return}catch(e){lsSet(CUR,'')}}
+  gate('login');
+}
+async function afterLogin(){
+  DB.users=(await api('GET','/api/users')).map(u=>u.id===S.id?S:normUser(u));
+  $('gate').hidden=true; $('app').hidden=false;
+  ui.open={}; if(S.subjects[0]) ui.open[S.subjects[0].id]=true;
+  ui.route=parseHash(); if(!S.profile.group&&ui.route.page==='subjects') ui.route={page:'profile',id:null};
+  setNet(true); render(); startPoll();
+}
+async function doLogin(){
+  const name=norm($('gName').value), er=m=>{$('gErr').textContent=m; $('gName').classList.add('invalid')};
+  $('gErr').textContent=''; $('gName').classList.remove('invalid');
+  if(!name) return er('Введите ФИО.');
+  if(!NAME_RE.test(name)) return er('Введите минимум фамилию и имя: только буквы, пробелы, дефис и точка.');
   try{
-    const list=await api('GET','/api/users');
-    const have=new Set(list.map(u=>u.id)), fresh=!list.length;
-    for(const u of DB.users.filter(u=>!u.pub)){
-      if(!have.has(u.id)&&(fresh||u.profile.name)){await api('PUT','/api/users/'+u.id,u); list.push(u);}
-    }
-    let cur=null; try{cur=localStorage.getItem(CUR)}catch(e){}
-    const users=list.map(normUser);
-    const t=users.find(u=>u.id===cur)||users.find(u=>u.id===S.id)||users[0];
-    if(t.pub){Object.assign(t,normUser(await api('GET','/api/users/'+t.id)));delete t.pub}
-    online=true; DB.users=users; S=t; DB.current=t.id;
-    try{localStorage.setItem(CUR,t.id);localStorage.removeItem(KEY)}catch(e){}
-    ui.open={}; if(S.subjects[0]) ui.open[S.subjects[0].id]=true;
-    setNet(true); render(); startPoll();
-  }catch(e){online=false;setNet()}
+    const r=await api('POST','/api/login',{name}); lsSet(CUR,r.id);
+    S=normUser(await api('GET','/api/users/'+r.id)); await afterLogin();
+  }catch(e){er(e.status===403?'Студента с таким ФИО нет, а регистрация новых студентов отключена.':'Не удалось войти. Проверьте соединение с сервером.')}
+}
+async function logout(){
+  await pushing; lsSet(CUR,''); S=null; clearInterval(poll); poll=null; dirty=false;
+  $('gName').value=''; $('gErr').textContent=''; gate('login');
 }
 function startPoll(){
   if(poll) return;
   poll=setInterval(async()=>{
-    if(!online) return;
+    if(!S) return;
     try{
-      const list=await api('GET','/api/users'), mine=S.id;
-      if(!list.some(u=>u.id===mine)){push(S);list.push(S)}
-      DB.users=list.map(u=>u.id===mine?S:normUser(u));
+      if(dirty) await push(S);
+      const [list,c]=await Promise.all([api('GET','/api/users'),api('GET','/api/config')]);
+      cfg=c;
+      if(!list.some(u=>u.id===S.id)){alert('Ваш профиль был удалён разработчиком.'); logout(); return}
+      DB.users=list.map(u=>u.id===S.id?S:normUser(u));
       renderHead(); const pg=ui.route.page; if(pg==='students'||pg==='student') route();
-      setNet(true);
+      setNet(!dirty);
     }catch(e){setNet(false)}
   },10000);
 }
-$('srvConn').onclick=async()=>{
-  const u=$('srvUrl').value.trim().replace(/\/+$/,'');
-  if(u&&!/^https?:\/\/\S+$/.test(u)){alert('Адрес должен начинаться с http:// или https://');return}
-  try{localStorage.setItem(APIK,u)}catch(e){}
-  API=u; await connect();
-  if(!online) alert('Не удалось подключиться к серверу. Проверьте адрес и убедитесь, что server.js запущен.');
+$('gGo').onclick=doLogin;
+$('gName').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();doLogin()}};
+$('gRetry').onclick=()=>{
+  const u=$('gUrl').value.trim().replace(/\/+$/,'');
+  if(u&&!/^https?:\/\/\S+$/.test(u)){$('gMsg').textContent='Адрес должен начинаться с http:// или https://';return}
+  lsSet(APIK,u); boot();
 };
-$('srvOff').onclick=()=>{
-  try{localStorage.setItem(APIK,'off')}catch(e){}
-  if(online){online=false;clearInterval(poll);poll=null;DB.users=[S];save();render()}
-  setNet();
-};
+$('gUrl').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('gRetry').click()}};
+$('logout').onclick=logout;
 
 /* ---------- студенты ---------- */
-async function switchTo(u){
-  if(online&&u.pub){
-    try{Object.assign(u,normUser(await api('GET','/api/users/'+u.id)));delete u.pub}
-    catch(e){alert('Не удалось загрузить данные студента с сервера.');return false}
-  }
-  S=u; ui.open={}; if(S.subjects[0]) ui.open[S.subjects[0].id]=true; saveCur(); return true;
-}
-$('userSel').onchange=async e=>{
-  const u=DB.users.find(x=>x.id===e.target.value);
-  if(await switchTo(u)) go('subjects'); else render();
-};
-$('addUser').onclick=()=>{
-  const u={id:uid(),profile:emptyProfile(),subjects:[]};
-  DB.users.push(u); S=u; ui.open={}; saveCur(); if(online) save();
-  go('profile'); $('editProf').click();
-};
-$('delUser').onclick=async()=>{
-  if(DB.users.length<2){alert('Нельзя удалить единственного студента. Сначала добавьте другого.');return}
-  if(!confirm('Удалить студента «'+(S.profile.name||'Новый студент')+'» вместе со всеми предметами и задачами? Это действие нельзя отменить.')) return;
-  const id=S.id;
-  if(online){try{await api('DELETE','/api/users/'+id)}catch(e){alert('Сервер недоступен: студент не удалён.');return}}
-  DB.users=DB.users.filter(u=>u.id!==id);
-  if(await switchTo(DB.users[0])) go('subjects');
-};
 const totals=u=>{const r={total:0,done:0,late:0};u.subjects.forEach(s=>{const x=stat(s);r.total+=x.total;r.done+=x.c[2];r.late+=x.late});r.pct=r.total?Math.round(r.done/r.total*100):0;return r};
 function renderStudents(){
   const box=$('stuBody'); box.textContent='';
@@ -702,15 +691,76 @@ function renderStudents(){
 function renderStudentView(u){
   const box=$('stuBody'); box.textContent='';
   const back=el('a',{href:'#/students',cls:'back',text:'← Все студенты'}); back.onclick=e=>{e.preventDefault();go('students')};
-  const p=u.profile, tt=totals(u), dl=el('dl'), btns=el('div',{cls:'btns l'});
+  const p=u.profile, tt=totals(u), dl=el('dl');
   [['ФИО',p.name],['Группа',p.group],['Email',p.email],['Выполнено',tt.done+' из '+tt.total+' ('+tt.pct+'%)'],['Просрочено',String(tt.late)]]
     .forEach(([k,v])=>{dl.appendChild(el('dt',{text:k}));dl.appendChild(el('dd',{text:v||'не указано'}))});
-  if(u.id!==S.id){const sw=el('button',{type:'button',cls:'primary',text:'Работать от имени этого студента'}); sw.onclick=async()=>{if(await switchTo(u)) go('subjects')}; btns.appendChild(sw)}
   box.appendChild(back);
-  box.appendChild(el('div',{cls:'card'},[el('h2',{text:p.name||'Студент без имени'}),dl,btns]));
+  box.appendChild(el('div',{cls:'card'},[el('h2',{text:p.name||'Студент без имени'}),dl]));
   box.appendChild(el('div',{cls:'card'},[el('h2',{text:'Статистика по предметам'}),statsTable(u),
     el('p',{cls:'sub',style:'margin-top:10px',text:'Названия задач, примечания и комментарии других студентов не показываются.'})]));
 }
+
+/* ---------- меню разработчика ---------- */
+function openDev(){
+  if(devToken){showDevPanel();return}
+  clearErr($('fDevLogin')); $('dvPass').value=''; openD($('dDevLogin')); $('dvPass').focus();
+}
+async function devCall(method,path,body){
+  try{return await api(method,path,body)}
+  catch(e){if(e.status===401){devToken='';closeD($('dDev'));alert('Сессия разработчика истекла. Войдите снова.');openDev()} throw e}
+}
+$('fDevLogin').addEventListener('submit',async e=>{
+  e.preventDefault(); clearErr(e.target);
+  const pw=$('dvPass').value;
+  if(!pw){err('dvPass','Введите пароль.');return}
+  try{const r=await api('POST','/api/dev/login',{password:pw}); devToken=r.token; closeD($('dDevLogin')); showDevPanel()}
+  catch(x){err('dvPass',x.status===401?'Неверный пароль.':x.status===429?'Слишком много попыток. Подождите минуту.':'Нет связи с сервером.')}
+});
+async function showDevPanel(){
+  let st; try{st=await devCall('GET','/api/dev/state')}catch(e){return}
+  const box=$('dvBody'), c=st.config; box.textContent='';
+  const url=el('input',{placeholder:'https://адрес-сервера (пусто — не менять)'}); url.value=c.serverUrl||'';
+  const ann=el('textarea',{maxlength:'300',rows:'2'}); ann.value=c.announcement||'';
+  const sign=el('input',{type:'checkbox'}); sign.checked=!!c.allowSignup; sign.style.width='auto';
+  const msg=el('p',{cls:'sub',style:'margin-top:8px'}), sv=el('button',{type:'button',cls:'primary',text:'Сохранить настройки'});
+  sv.onclick=async()=>{
+    const v=url.value.trim().replace(/\/+$/,'');
+    if(v&&!/^https?:\/\/\S+$/.test(v)){msg.textContent='Адрес должен начинаться с http:// или https://';return}
+    try{
+      await devCall('PUT','/api/dev/config',{serverUrl:v,announcement:ann.value.trim(),allowSignup:sign.checked});
+      cfg=await api('GET','/api/config'); if(S) renderHead(); msg.textContent='Сохранено.';
+    }catch(e){msg.textContent='Не удалось сохранить.'}
+  };
+  box.appendChild(el('div',{cls:'card'},[el('h3',{text:'Настройки для всех пользователей'}),
+    el('div',{cls:'f'},[el('label',{text:'Адрес сервера'}),url,el('p',{cls:'sub',style:'margin-top:4px',text:'Клиенты, подключившиеся к этому серверу по другому адресу, при следующем запуске переключатся на указанный. Пустое поле — ничего не менять.'})]),
+    el('div',{cls:'f',style:'margin-top:10px'},[el('label',{text:'Объявление для всех студентов'}),ann]),
+    el('label',{style:'display:flex;gap:8px;align-items:center;margin:10px 0'},[sign,'Разрешить вход новым студентам (создавать профиль по имени)']),
+    sv,msg]));
+  const rows=st.users.map(u=>{
+    const b=el('button',{type:'button',cls:'danger',text:'Удалить'});
+    b.onclick=async()=>{
+      if(!confirm('Удалить студента «'+(u.name||'без имени')+'» со всеми данными?')) return;
+      try{await devCall('DELETE','/api/dev/users/'+u.id); showDevPanel()}catch(e){alert('Не удалось удалить.')}
+    };
+    return el('tr',{},[el('td',{'data-l':'ФИО',text:u.name||'Без имени'}),el('td',{'data-l':'Группа',text:u.group||'—'}),el('td',{'data-l':'Задач',text:String(u.tasks)}),el('td',{cls:'act'},[b])]);
+  });
+  box.appendChild(el('div',{cls:'card'},[el('h3',{text:'Студенты ('+st.users.length+')'}),
+    st.users.length?el('table',{cls:'rt'},[el('thead',{},[el('tr',{},['ФИО','Группа','Задач',''].map(h=>el('th',{text:h})))]),el('tbody',{},rows)]):el('p',{cls:'empty',text:'Студентов пока нет.'})]));
+  const bk=el('button',{type:'button',text:'Скачать резервную копию (JSON)'});
+  bk.onclick=async()=>{try{download('planner-backup-'+fmt(new Date())+'.json','application/json',JSON.stringify(await devCall('GET','/api/dev/backup'),null,2))}catch(e){}};
+  const pw=el('input',{type:'password',placeholder:'Новый пароль, не короче 8 символов',autocomplete:'new-password'}), pm=el('p',{cls:'sub',style:'margin-top:8px'});
+  const pb=el('button',{type:'button',text:'Сменить пароль'});
+  pb.onclick=async()=>{
+    if(pw.value.length<8){pm.textContent='Пароль слишком короткий: минимум 8 символов.';return}
+    try{await devCall('POST','/api/dev/password',{password:pw.value}); devToken=''; closeD($('dDev')); alert('Пароль изменён. Войдите в меню заново.')}
+    catch(e){pm.textContent='Не удалось изменить пароль.'}
+  };
+  box.appendChild(el('div',{cls:'card'},[el('h3',{text:'Данные и доступ'}),el('div',{cls:'btns l',style:'margin-bottom:12px'},[bk]),
+    el('div',{cls:'f'},[el('label',{text:'Пароль разработчика'}),pw]),el('div',{style:'margin-top:10px'},[pb]),pm]));
+  if(!$('dDev').hasAttribute('open')) openD($('dDev'));
+}
+$('dvLogout').onclick=()=>{devToken='';closeD($('dDev'))};
+$('devLink').onclick=openDev; $('devBtn').onclick=openDev;
 
 /* ---------- экспорт и импорт ---------- */
 function download(name,mime,text){
@@ -727,23 +777,10 @@ $('expCsv').onclick=()=>{
   S.subjects.forEach(s=>s.tasks.slice().sort((a,b)=>dk(a)<dk(b)?-1:dk(a)>dk(b)?1:0).forEach(t=>rows.push([s.name,t.title,t.type,t.due,t.status,t.notes])));
   download('planner-'+fmt(new Date())+'.csv','text/csv;charset=utf-8','\uFEFF'+rows.map(r=>r.map(q).join(';')).join('\r\n'));
 };
-$('impBtn').onclick=()=>$('impFile').click();
-$('impFile').onchange=e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const rd=new FileReader();
-  rd.onload=()=>{
-    try{
-      const u=importUser(JSON.parse(rd.result));
-      DB.users.push(u); S=u; ui.open={}; saveCur(); if(online) save(); render();
-      alert('Импортирован студент «'+(u.profile.name||'Новый студент')+'»: предметов — '+u.subjects.length+'.');
-    }catch(x){alert('Не удалось прочитать файл. Нужен JSON, скачанный из этого планировщика.')}
-  };
-  rd.readAsText(f); e.target.value='';
-};
 
 /* ---------- навигация, тема ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
-const onNav=()=>{ui.route=parseHash();render()};
+const onNav=()=>{if(S){ui.route=parseHash();render()}};
 window.addEventListener('hashchange',onNav); window.addEventListener('popstate',onNav);
 
 let theme='';
@@ -754,18 +791,7 @@ applyTheme();
 $('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';applyTheme();try{localStorage.setItem(TK,theme)}catch(e){}};
 
 /* ---------- старт ---------- */
-function normUser(u){
-  u.id=u.id||uid(); u.profile=Object.assign(emptyProfile(),u.profile); u.subjects=Array.isArray(u.subjects)?u.subjects:[];
-  u.subjects.forEach(s=>{s.description=s.description||'';s.comments=Array.isArray(s.comments)?s.comments:[];s.tasks=Array.isArray(s.tasks)?s.tasks:[];s.tasks.forEach(x=>{x.due=x.due||''})});
-  return u;
-}
-{const m=apiMode(); API=(m&&m!=='off')?m:''; $('srvUrl').value=API;}
-DB=load()||{users:[Object.assign({id:uid()},seed())]};
-DB.users.forEach(normUser);
-S=DB.users.find(u=>u.id===DB.current)||DB.users[0]; DB.current=S.id; save();
-ui.route=parseHash();
-if(S.subjects[0]) ui.open[S.subjects[0].id]=true;
-render(); connect();
+boot();
 })();
 </script>
 </body>
